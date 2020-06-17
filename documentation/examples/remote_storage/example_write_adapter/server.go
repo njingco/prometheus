@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
@@ -27,7 +28,21 @@ import (
 )
 
 func main() {
+	// ------------------------------------------
+	filename := "test.txt"
+	create, err := os.Create(filename)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	create.WriteString("\n\n*****Create***** \n\n")
+
+	// ------------------------------------------
+
 	http.HandleFunc("/receive", func(w http.ResponseWriter, r *http.Request) {
+		// ------------------------------------------
+		f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0600)
+		// ------------------------------------------
 		compressed, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -53,10 +68,30 @@ func main() {
 			}
 			fmt.Println(m)
 
+			// ------------------------------------------
+			f.WriteString(fmt.Sprintf("%s", m) + "\n")
+			// ------------------------------------------
+
 			for _, s := range ts.Samples {
 				fmt.Printf("  %f %d\n", s.Value, s.Timestamp)
+
+				// ------------------------------------------
+				f.WriteString(fmt.Sprintf("%f ", s.Value) + fmt.Sprintf("%d", s.Timestamp) + "\n")
+				// ------------------------------------------
+
 			}
 		}
+
+		// ------------------------------------------
+		fmt.Println("Closing")
+
+		err = f.Close()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		// ------------------------------------------
+
 	})
 
 	log.Fatal(http.ListenAndServe(":1234", nil))
